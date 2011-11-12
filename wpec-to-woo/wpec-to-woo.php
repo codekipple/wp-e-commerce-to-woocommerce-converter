@@ -14,6 +14,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
         
         var $output;
         var $products; // stores all the product posts
+        var $old_post_type = 'product'; //wpsc-product
         
         function ralc_wpec_to_woo() { } // constructor
         
@@ -48,17 +49,16 @@ if (!class_exists("ralc_wpec_to_woo")) {
         } //END: plugin_options
         
         function conversion(){
-          $this->output .= '<p>Conversion Finished</p>';
-          
+          $this->output .= '<p>Conversion Finished</p>';          
           $this->get_posts();
+          $this->update_shop_settings();          
           $this->update_products();
-          $this->update_categories();          
-          
+          $this->update_categories(); 
+          //$this->delete_redundant_wpec_datbase_entries();          
         }// END: conversion
         
         function get_posts(){
-          $args = array( 'post_type' => 'wpsc-product', 'posts_per_page' => -1 );
-          // $args = array( 'post_type' => 'product', 'posts_per_page' => -1 ); this line is just when im testing so i can keep running the code on the products even though their post_type has already been converted
+          $args = array( 'post_type' => $this->old_post_type, 'posts_per_page' => -1 );
           $this->products = new WP_Query( $args );
         }
         
@@ -173,6 +173,29 @@ if (!class_exists("ralc_wpec_to_woo")) {
             $width = $dimensions['width'];
             update_post_meta($post_id, 'width', $width);
             
+            /* woocommerce option update, weight unit and dimentions unit */
+            if( $count == 1 ){
+              /*
+               * wpec stores weight unit and dimentions on a per product basis
+               * as i expect most shops will use the same values for all products we can just take a single product
+               * and just use those values for the global values used store wide in woocommerce
+               */
+              $weight_unit = $_wpsc_product_metadata['weight_unit'];
+              $dimentions_unit = $dimensions['height_unit'];
+              if( $weight_unit == "pound" || $weight_unit == "ounce" || $weight_unit == "gram" ){
+                $weight_unit = "lbs";
+              }else{
+                $weight_unit = "kg";
+              }
+              if( $dimentions_unit == "cm" || $dimentions_unit == "meter" ){
+                $dimentions_unit = "cm";
+              }else{
+                $dimentions_unit = "in";
+              }
+              update_option( 'woocommerce_weight_unit', $weight_unit );
+              update_option( 'woocommerce_dimension_unit', $dimentions_unit );
+            }
+            
             
             // featured?
             if (in_array($post_id, $featured_products)) {
@@ -180,8 +203,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
             }else{
               $featured = 'no';
             }
-            update_post_meta($post_id, 'featured', $featured);
-            
+            update_post_meta($post_id, 'featured', $featured);            
             // ______________________________
 
             
@@ -199,27 +221,9 @@ if (!class_exists("ralc_wpec_to_woo")) {
               foreach ( $attachments as $attachment ) {
                 set_post_thumbnail( $post_id, $attachment->ID );
               }
-            }
-             
+            }             
             // ______________________________
-            
-            // ______ RELATED PRODUCTS ______
-            
-            // ______________________________
-            
-            
-            // ______ DELETE REDUNDANT WPEC ENTRIES ______
-            /* left this commented while testing so i can repeatadly run the program
-            delete_post_meta($post_id, '_wpsc_price');
-            delete_post_meta($post_id, '_wpsc_special_price');
-            delete_post_meta($post_id, '_wpsc_stock');
-            delete_post_meta($post_id, '_wpsc_is_donation');
-            delete_post_meta($post_id, '_wpsc_original_id');
-            delete_post_meta($post_id, '_wpsc_sku');
-            delete_post_meta($post_id, '_wpsc_product_metadata');
-            delete_option('sticky_products');
-            */
-            // ______________________________
+
           endwhile;    
           $this->output .= '<p>' . $count . ' products updated</p>'; 
 
@@ -244,8 +248,91 @@ if (!class_exists("ralc_wpec_to_woo")) {
           $table = $wpdb->prefix . 'postmeta';
           $wpdb->update( $table, $data, $where ); 
           $wpdb->flush();
+          
+          /* category images */
+          
         }// END: update_categories
         
+        function update_shop_settings(){
+          global $wpdb;
+          /*
+           * were only going to update some straight forward options
+           * most options are not worth updating, these can be done by the user easy enough
+           */
+          // ______ GENERAL ______          
+          // Guest checkout
+          $enable_guest_checkout = get_option('require_register');
+          if( $enable_guest_checkout == '1' ){
+            $enable_guest_checkout = 'no';
+          }else{
+            $enable_guest_checkout = 'yes';
+          }
+          update_option( 'woocommerce_enable_guest_checkout', $enable_guest_checkout );
+          // ______________________________
+          
+          // ______ CATALOG ______
+          /*
+          weight unit and dimentions unit are changed in the update_products() function because of the way wpec stores these options
+          */          
+          // wpec                                           // woo
+          
+          // product thumbnail, width and height
+          $product_thumb_width = get_option('product_image_width');
+          update_option('woocommerce_thumbnail_image_width', $product_thumb_width);          
+          $product_thumb_height = get_option('product_image_height');
+          update_option('woocommerce_thumbnail_image_height', $product_thumb_height);
+          
+          // catalog image, width and height
+          $catalog_thumb_width = get_option('category_image_width');
+          update_option('woocommerce_catalog_image_width', $catalog_thumb_width);          
+          $catalog_thumb_height = get_option('category_image_height');
+          update_option('woocommerce_catalog_image_height', $catalog_thumb_height);
+                   
+          // Single Product, width and height
+          $single_product_width = get_option('single_view_image_width');
+          update_option('woocommerce_single_image_width', $single_product_width);          
+          $single_product_height = get_option('single_view_image_height');
+          update_option('woocommerce_single_image_height', $single_product_height);
+          
+          // Crop Thumbnails: 
+          /*
+          wpec has a setting 'wpsc_crop_thumbnails' when this is set it seems to initiate hard crop for all product images
+          so we can set all of the woo hard crop options to this single option value
+          */
+          $hard_crop = (get_option('wpsc_crop_thumbnails')=='yes') ? 1 : 0;
+          update_option('woocommerce_catalog_image_crop', $hard_crop);
+          update_option('woocommerce_single_image_crop', $hard_crop);
+          update_option('woocommerce_thumbnail_image_crop', $hard_crop);
+          
+          // ______________________________
+
+        }
+        
+        function update_orders(){
+        
+        }
+        
+        function update_coupons(){
+        
+        }
+        
+        function delete_redundant_wpec_datbase_entries(){
+          /* delete all wpec database entries */
+          delete_post_meta($post_id, '_wpsc_price');
+          delete_post_meta($post_id, '_wpsc_special_price');
+          delete_post_meta($post_id, '_wpsc_stock');
+          delete_post_meta($post_id, '_wpsc_is_donation');
+          delete_post_meta($post_id, '_wpsc_original_id');
+          delete_post_meta($post_id, '_wpsc_sku');
+          delete_post_meta($post_id, '_wpsc_product_metadata');
+          delete_option('sticky_products');
+          delete_option('require_register');
+          delete_option('product_image_width');
+          delete_option('product_image_height');
+          delete_option('category_image_width');
+          delete_option('category_image_height');
+          delete_option('wpsc_crop_thumbnails');
+        }
 
     } //End Class: ralc_wpec_to_woo
  
