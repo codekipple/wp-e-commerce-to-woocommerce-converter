@@ -14,7 +14,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
         
         var $output;
         var $products; // stores all the product posts
-        var $old_post_type = 'product'; //wpsc-product
+        var $old_post_type = 'wpsc-product'; //wpsc-product
         
         function ralc_wpec_to_woo() { } // constructor
         
@@ -50,11 +50,13 @@ if (!class_exists("ralc_wpec_to_woo")) {
         
         function conversion(){
           $this->output .= '<p>Conversion Finished</p>';          
+
           $this->get_posts();
           $this->update_shop_settings();          
           $this->update_products();
           $this->update_categories(); 
-          //$this->delete_redundant_wpec_datbase_entries();          
+          $this->update_coupons();
+          // $this->delete_redundant_wpec_datbase_entries();          
         }// END: conversion
         
         function get_posts(){
@@ -274,7 +276,6 @@ if (!class_exists("ralc_wpec_to_woo")) {
           /*
           weight unit and dimentions unit are changed in the update_products() function because of the way wpec stores these options
           */          
-          // wpec                                           // woo
           
           // product thumbnail, width and height
           $product_thumb_width = get_option('product_image_width');
@@ -313,10 +314,125 @@ if (!class_exists("ralc_wpec_to_woo")) {
         }
         
         function update_coupons(){
-        
-        }
+          global $wpdb;
+          // get all coupons
+          $wpec_coupon_table = $wpdb->prefix . 'wpsc_coupon_codes';
+          $coupon_data = $wpdb->get_results( "SELECT * FROM `" . $wpec_coupon_table . "` ", ARRAY_A );
+          
+          // get the gmt timezone         
+          $post_date_gmt = date_i18n( 'Y-m-d H:i:s', false, true );
+          // get the local timezone
+          $post_date = date_i18n( 'Y-m-d H:i:s' );
+          
+          // just get the id of the first administrator in the database
+          $post_author = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->users;" ) );
+          
+          // loop through coupons            
+          foreach ( (array)$coupon_data as $coupon ):  
+            
+            $post_title = sanitize_title( $coupon['coupon_code'] );
+            // check to see if coupon has already been added
+            $coupon_exists = $wpdb->get_var($wpdb->prepare(
+                                          "SELECT ID FROM $wpdb->posts 
+                                          WHERE post_title = %s 
+                                          AND post_type = 'shop_coupon'",
+                                          $post_title
+                                          ));
+            
+
+            if( !$coupon_exists ):
+              // create a new post with custom post type 'shop_coupon'
+              $post = array(
+                'comment_status' => 'closed', // 'closed' means no comments.
+                'ping_status' => 'closed', // 'closed' means pingbacks or trackbacks turned off
+                'post_author' => $post_author, //The user ID number of the author.
+                //'post_content' => '', //The full text of the post.
+                'post_date' => $post_date, //The time post was made.
+                'post_date_gmt' => $post_date_gmt, //The time post was made, in GMT.
+                //'post_name' => '', // The name (slug) for your post
+                'post_parent' => '0', //Sets the parent of the new post.
+                'post_status' => 'publish', //Set the status of the new post. 
+                'post_title' => $post_title, //The title of your post.
+                'post_type' => 'shop_coupon' 
+              );
+
+              $post_id = wp_insert_post( $post, true );
+              
+              if( !isset($post_id->errors) ){
+                // if coupon is in-active or has conditions set the expiry date to a day in the past
+                $conditions = unserialize( $coupon['condition'] );
+                if( $coupon['active'] == "0" || count( $conditions ) > 0 || $coupon['is-percentage'] == "2" ){
+                  if( count( $conditions ) > 0 ){
+                    // if conditions are present or discount is free shipping then add explanation warning to output saying 
+                    // some aspects of the coupn is not compatible with woocommererce
+                  }
+                  // set expiry in the past
+                  $expiray_date = date_i18n('Y-m-d', strtotime("-1 year") );
+                }else{
+                  $expiray_date = $coupon['expiry'];
+                }
+                
+                // set expiry date
+                update_post_meta($post_id, 'expiry_date', $expiray_date);
+                
+                // set the discount_type
+                if( $coupon['is-percentage'] == "0" ){
+                  // fixed
+                  if( $coupon['every_product'] == "1" ){
+                    $discount_type = 'fixed_product';
+                  }else{
+                    $discount_type = 'fixed_cart';
+                  }
+                }elseif( $coupon['is-percentage'] == "1" ){
+                  // percentage
+                  if( $coupon['every_product'] == "1" ){
+                    $discount_type = 'percent_product';
+                  }else{
+                    $discount_type = 'percent';
+                  }
+                }
+                update_post_meta($post_id, 'discount_type', $discount_type);
+                
+                // set coupon amount
+                update_post_meta($post_id, 'coupon_amount', $coupon['value']);
+                
+                // wpec does not allow user to use more then one code together anyay so we can set them all to 'yes'
+                update_post_meta($post_id, 'individual_use', 'yes'); 
+                
+                //set product_ids and exclude_product_ids, feature not available to wpec so just insert blank values
+                update_post_meta($post_id, 'product_ids', '');
+                update_post_meta($post_id, 'exclude_product_ids', '');
+                
+                //set useage limit
+                /*
+                you can't set a useage value in wpec, but you can set a 'use once' bool, so if thats set
+                and the discount code has not been used yet, we can set the useage limit to 1, otherwise 
+                leave it blank
+                */
+                if( $coupon['use-once'] == "1" ){
+                  $usage_limit = '1';
+                  if( $coupon['is-used'] == "1" ){
+                    update_post_meta($post_id, 'usage_count', '1');
+                  }
+                }else{
+                  $usage_limit = '';
+                }
+                update_post_meta($post_id, 'usage_limit', $usage_limit);
+                
+              }else{
+                // coupon insertian failed, give feedback to user
+              }
+            else:
+              // tell user this coupon already exists in the database!
+            endif; // if( !$coupon_exists )
+            
+          endforeach;  
+          // end: loop of coupons
+
+        }// END: update_coupons()
         
         function delete_redundant_wpec_datbase_entries(){
+          global $wpdb;
           /* delete all wpec database entries */
           delete_post_meta($post_id, '_wpsc_price');
           delete_post_meta($post_id, '_wpsc_special_price');
@@ -332,6 +448,10 @@ if (!class_exists("ralc_wpec_to_woo")) {
           delete_option('category_image_width');
           delete_option('category_image_height');
           delete_option('wpsc_crop_thumbnails');
+          
+          // delete tables
+          $table = $wpdb->prefix."wpsc_coupon_codes";
+          $wpdb->query("DROP TABLE IF EXISTS $table");
         }
 
     } //End Class: ralc_wpec_to_woo
