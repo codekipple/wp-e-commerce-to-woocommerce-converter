@@ -15,12 +15,22 @@ if (!class_exists("ralc_wpec_to_woo")) {
         var $output;
         var $products; // stores all the product posts
         var $old_post_type = 'wpsc-product'; //wpsc-product
+        var $log; // stores a log of actions taken by the script during conversion
         
         function ralc_wpec_to_woo() { } // constructor
         
         function plugin_menu() {
-          add_submenu_page( 'tools.php', 'wpec to woo', 'wpec to woo', 'manage_options', 'wpec-to-woo', array( $this, 'plugin_options' ) );
+          $page = add_submenu_page( 'tools.php', 'wpec to woo', 'wpec to woo', 'manage_options', 'wpec-to-woo', array( $this, 'plugin_options' ) );
+          add_action( 'admin_print_styles-' . $page, array( $this, 'admin_styles' ) );
         }// END: plugin_menu
+        
+        function admin_styles() {
+           wp_enqueue_style( 'wpec_to_woo_styles' );
+        }
+        
+        function admin_init() {
+           wp_register_style( 'wpec_to_woo_styles', plugins_url('styles.css', __FILE__) );
+        }
 
         function plugin_options() {
           if (!current_user_can('manage_options'))  {
@@ -45,19 +55,47 @@ if (!class_exists("ralc_wpec_to_woo")) {
             $this->conversion();
           }
           $this->output .= '</div>';
+          
+          $this->at_a_glance();
+          
           echo $this->output;          
         } //END: plugin_options
         
-        function conversion(){
-          $this->output .= '<p>Conversion Finished</p>';          
-
+        function at_a_glance(){
+        
+        }
+        
+        function conversion(){ 
           $this->get_posts();
           $this->update_shop_settings();          
-          $this->update_products();
+          $this->update_products();*/
           $this->update_categories(); 
           $this->update_coupons();
-          // $this->delete_redundant_wpec_datbase_entries();          
+          // $this->delete_redundant_wpec_datbase_entries();  
+          $this->show_log();          
         }// END: conversion
+        
+        function show_log(){
+          $this->output .= '<p>Conversion Finished</p>';
+
+          if( $this->log["products"] ){
+            $this->output .= '<h3>Products</h3><ul id="product_list">';
+            //show products that have been converted
+            foreach( $this->log["products"] as $product ){
+              $this->output .= '<li>';
+              $this->output .= '<p class="id">ID: '. $product["id"] .'</p>';
+              $this->output .= '<p class="title">Title: '. $product["title"] .'</p>';
+              $this->output .= '</li>';
+            }
+            $this->output .= '</ul>';
+          }
+          
+          if( $this->log["categories"] ){
+            $this->output .= '<h3>Categories</h3>';
+            $this->output .= $this->log["categories"]["updated"] . ' categories updated';
+          }
+          
+        }
         
         function get_posts(){
           $args = array( 'post_type' => $this->old_post_type, 'posts_per_page' => -1 );
@@ -225,9 +263,10 @@ if (!class_exists("ralc_wpec_to_woo")) {
               }
             }             
             // ______________________________
-
+            
+            // add product to log
+            $this->log["products"][] = array("id" => $post_id, "title" => get_the_title() );
           endwhile;    
-          $this->output .= '<p>' . $count . ' products updated</p>'; 
 
         }// END: update_products
         
@@ -236,23 +275,30 @@ if (!class_exists("ralc_wpec_to_woo")) {
          */
         function update_categories(){
           global $wpdb;
-          //$wpdb->show_errors();          
+
+          //$wpdb->show_errors(); 
+          // count how many categories there are to convert
+          $category_count = $wpdb->get_var( $wpdb->prepare(
+                                            "SELECT COUNT(*) FROM $wpdb->term_taxonomy 
+                                            WHERE taxonomy='wpsc_product_category'"  
+                                           ));
+          // log the count                                
+          $this->log["categories"] = array( "updated" => $category_count );
+          
+          // convert the categories
+          $table = $wpdb->prefix . 'term_taxonomy';
           $data = array( 'taxonomy' => 'product_cat' );
           $where = array( 'taxonomy' => 'wpsc_product_category' );
-          $table = $wpdb->prefix . 'term_taxonomy';
           $wpdb->update( $table, $data, $where );
-          $this->output .= '<p>' . $wpdb->num_rows . ' categories updated</p>';   
-          $wpdb->flush();
           
-          /* category stuff inside postmeta */
+          // category stuff inside postmeta
           $data = array( 'meta_value' => 'product_cat' );
           $where = array( 'meta_value' => 'wpsc_product_category' );
           $table = $wpdb->prefix . 'postmeta';
           $wpdb->update( $table, $data, $where ); 
+          
+          /* category images !!!!!!!!!!! */
           $wpdb->flush();
-          
-          /* category images */
-          
         }// END: update_categories
         
         function update_shop_settings(){
@@ -467,6 +513,6 @@ if (class_exists("ralc_wpec_to_woo")) {
 //Actions and Filters   
 if (isset($ralc_wpec_to_woo)) {
     //Actions
+    add_action( 'admin_init', array($ralc_wpec_to_woo, 'admin_init') );
     add_action('admin_menu', array($ralc_wpec_to_woo, 'plugin_menu') );
-    //Filters
 }
