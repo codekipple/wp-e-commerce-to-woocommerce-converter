@@ -114,8 +114,8 @@ if (!class_exists("ralc_wpec_to_woo")) {
                 <div class="handlediv" title="Click to toggle"></div>
                 <h3 class="hndle"><span>Your WooCommerce Shop At a Glance</h3>
                 <div class="inside">
+                
                   <div class="table table_content">
-
                     <p class="sub">Content</p>
                     <table>
                       <tbody>
@@ -131,8 +131,10 @@ if (!class_exists("ralc_wpec_to_woo")) {
                           <td class="t"><a href="edit.php?post_type=shop_coupon">Coupons</a></td>
                         </tr>
                       </tbody>
-                    </table>
-
+                    </table>                
+                  </div><!-- .table --> 
+                  
+                  <div class="table table_orders">
                     <p class="sub orders_sub">Orders</p>
                     <table>
                       <tbody>
@@ -153,9 +155,9 @@ if (!class_exists("ralc_wpec_to_woo")) {
                           <td class="t"><a href="edit.php?post_type=shop_order" class="complete">Completed</a></td>
                         </tr>
                       </tbody>
-                    </table>
-                
-                  </div><!-- .table -->       
+                    </table>                
+                  </div><!-- .table --> 
+                  
                 </div><!-- .inside -->
               </div><!-- .postbox -->
             </div><!-- .postbox-container -->
@@ -180,24 +182,26 @@ if (!class_exists("ralc_wpec_to_woo")) {
                 <div class="handlediv" title="Click to toggle"></div>
                 <h3 class="hndle"><span>Your WPEC Shop At a Glance</h3>
                 <div class="inside">
+                
                   <div class="table table_content">
-
                     <p class="sub">Content</p>
                     <table><tbody>
                     <tr class="first"><td class="b first"><a href="#"><?php echo $wpec_products ?></a></td><td class="t"><a href="#">Products<a/></td></tr>
                     <tr class="first"><td class="b first"><a href="#"><?php echo $wpec_categories ?></a></td><td class="t"><a href="#">Product Categories</a></td></tr>
                     <tr class="first"><td class="b first"><a href="#"><?php echo $wpec_coupons ?></a></td><td class="t"><a href="#">Coupons</a></td></tr>
-                    </tbody></table>
-
+                    </tbody></table>           
+                  </div><!-- .table -->
+                  
+                  <div class="table table_orders">
                     <p class="sub orders_sub">Orders</p>
                     <table><tbody>
                     <tr class="first"><td class="b first"><a href="edit.php?post_type=product"><?php echo $woo_orders_pending ?></a></td><td class="t"><a href="#" class="pending">Pending<a/></td></tr>
                     <tr class="first"><td class="b first"><a href="#"><?php echo $woo_orders_onhold ?></a></td><td class="t"><a href="#" class="onhold">On-Hold<a/></td></tr>
                     <tr class="first"><td class="b first"><a href="#"><?php echo $woo_orders_processing ?></a></td><td class="t"><a href="#" class="processing">Processing</a></td></tr>
                     <tr class="first"><td class="b first"><a href="#"><?php echo $woo_orders_completed ?></a></td><td class="t"><a href="#" class="complete">Completed</a></td></tr>
-                    </tbody></table>
-              
+                    </tbody></table>              
                   </div><!-- .table -->
+                  
                 </div><!-- .inside -->
               </div><!-- .postbox -->
             </div><!-- .postbox-container -->
