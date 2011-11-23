@@ -1,0 +1,28 @@
+#glance .postbox-container{ width:49%; }
+#glance .table{ position:relative; }
+#glance .table_content{ border-top:1px solid #ECECEC }
+#glance .inside{ font-size:12px; padding-top:30px; padding-bottom:20px; }
+#glance .sub{
+  color:#8F8F8F;
+  font-size:14px;
+  padding:5px 0 15px;
+  position:absolute;
+  top:-17px;
+  left:15px;
+}
+#glance .sub{ margin:-12px; }
+#glance .b{ padding-right:6px; text-align:right; font-size:14px; width:1px; font-family:Georgia,"Times New Roman","Bitstream Charter",Times,serif; }
+#glance .t{ padding-right:12px; padding-top:6px; }
+#glance a{ text-decoration:none; }
+#glance .hndle{ cursor:default; }
+#glance .orders_sub{ 
+  position:static;
+  margin:5px 5px 0;
+  top:auto;
+  left:auto;
+  border-bottom:1px solid #ECECEC;
+  padding-bottom:5px;
+}
+#glance .pending{ color:#E66F00; }
+#glance .onhold{ color:red; }
+#glance .complete{ color:green; }

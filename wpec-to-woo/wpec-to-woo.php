@@ -12,7 +12,6 @@ if (!class_exists("ralc_wpec_to_woo")) {
 
     class ralc_wpec_to_woo {
         
-        var $output;
         var $products; // stores all the product posts
         var $old_post_type = 'wpsc-product'; //wpsc-product
         var $log; // stores a log of actions taken by the script during conversion
@@ -22,6 +21,11 @@ if (!class_exists("ralc_wpec_to_woo")) {
         function plugin_menu() {
           $page = add_submenu_page( 'tools.php', 'wpec to woo', 'wpec to woo', 'manage_options', 'wpec-to-woo', array( $this, 'plugin_options' ) );
           add_action( 'admin_print_styles-' . $page, array( $this, 'admin_styles' ) );
+          
+          $help = '<p>The idea is you run this on a wordpress shop already setup with wp-e-commerce. Then this code will convert as much as it can into a woocommerce a shop. Make sure you have the Woocommerce plugin activated.</p>';
+          $help .= '<p>Currently only converting products and categories, plan to try and convert the orders too. Because the sites i\'m writing this for don\'t have any variations on products i have not taken the time to work out a system for them. It also sets all products tax status to \'taxable\' and the tax class to \'standard\' regardless.</p>';          
+          $help .= '<p><b>One last caveat:</b> i\'m working with version:3.8.6 of wp-e-commerce, things may well have changed with the lastest version but the shops i need to convert are on this version and i\'m not interested in trying to upgrade them because of the many problems i have been having each time i upgrade the wp-e-commerce plugin. I\'ll test the plugin with the latest verion at a later date.</p>';
+          add_contextual_help( $page, $help );
         }// END: plugin_menu
         
         function admin_styles() {
@@ -37,63 +41,197 @@ if (!class_exists("ralc_wpec_to_woo")) {
             wp_die( __('You do not have sufficient permissions to access this page.') );
           }
           
-          $this->output = '<div class="wrap">';
-          $this->output .= '<h2>Wp-e-commerce to woocommerce converter</h2>';
-          $this->output .= '<p>Use at your own risk!, still working on it, only use it on a test version of your site.</p>';
-          $this->output .= '<p>The idea is you run this on a wordpress shop already setup with wp-e-commerce. Then this code will convert as much as it can into a woocommerce a shop. Make sure you have the Woocommerce plugin activated.</p>';
-          $this->output .= '<p>Currently only converting products and categories, plan to try and convert the orders too. Because the sites i\'m writing this for don\'t have any variations on products i have not taken the time to work out a system for them. It also sets all products tax status to \'taxable\' and the tax class to \'standard\' regardless.</p>';
-          
-          $this->output .= '<p><b>One last caveat:</b> i\'m working with version:3.8.6 of wp-e-commerce, things may well have changed with the lastest version but the shops i need to convert are on this version and i\'m not interested in trying to upgrade them because of the many problems i have been having each time i upgrade the wp-e-commerce plugin. I\'ll test the plugin with the latest verion at a later date.</p>';
-          
-          if( !$_POST['order'] == 'go_go_go' ){
-            $this->output .= '<p>Press the button for conversion goodness.</p>';
-            $this->output .= '<form method="post" action="tools.php?page=wpec-to-woo">';
-            $this->output .= '<input type="hidden" name="order" value="go_go_go" />';
-            $this->output .= '<input type="submit" value="go go go" />';
-            $this->output .= '</form>';
-          }else{
-            $this->conversion();
-          }
-          $this->output .= '</div>';
-          
-          $this->at_a_glance();
-          
-          echo $this->output;          
-        } //END: plugin_options
+          ?>
+          <div class="wrap">
+            <h2>Wp-e-commerce to woocommerce converter</h2>
+            <p>Use at your own risk!, still working on it, only use it on a test version of your site. Read the help for more information.</p>         
+            <?php
+            if( $_POST['order'] == 'go_go_go' ){
+              $this->conversion();            
+            }
+            $this->at_a_glance();
+            ?>
+            <p>Press the button for conversion goodness.</p>
+              <form method="post" action="tools.php?page=wpec-to-woo">
+              <input type="hidden" name="order" value="go_go_go" />
+              <input class="button-primary" type="submit" value="go go go" />
+            </form>
+            <?php
+            if( $_POST['order'] == 'go_go_go' ){          
+              $this->show_log();
+            }
+            ?>
+          </div><!-- .wrap -->
+          <?php                  
+        } //END: plugin_options        
         
         function at_a_glance(){
-        
-        }
-        
+          global $wpdb;
+          ?>
+          <div id="glance" class="metabox-holder">
+            <?php
+            // woocommerce at a glance
+            $woo_products  = count( get_posts( array(
+              'numberposts'     => -1,
+              'post_type'       => 'product',
+              'post_status'     => 'publish' ,
+            )));
+            $woo_categories =  count( get_categories( array(
+              'taxonomy' => 'product_cat'
+            )));           
+            $woo_coupons  = count( get_posts( array(
+              'numberposts'     => -1,
+              'post_type'       => 'shop_coupon',
+              'post_status'     => 'publish' ,
+            )));
+            $orders_args = array(
+                'numberposts'     => -1,
+                'post_type'       => 'shop_order',
+                'post_status'     => 'publish' ,
+                'tax_query' => array(
+                  array(
+                    'taxonomy' => 'shop_order_status',
+                    'terms' => array('completed', 'processing', 'on-hold'),
+                    'field' => 'slug',
+                    'operator' => 'IN'
+                  )
+                )
+            );
+            $orders_args['tax_query'][0]['terms'] = array('pending');
+            $woo_orders_pending  = count( get_posts( $orders_args ) );
+            
+            $orders_args['tax_query'][0]['terms'] = array('on-hold');
+            $woo_orders_onhold  = count( get_posts( $orders_args ) );
+            
+            $orders_args['tax_query'][0]['terms'] = array('processing');
+            $woo_orders_processing  = count( get_posts( $orders_args ) );
+            
+            $orders_args['tax_query'][0]['terms'] = array('completed');
+            $woo_orders_completed  = count( get_posts( $orders_args ) );
+            ?>
+            <div class="postbox-container">
+              <div class="postbox">
+                <div class="handlediv" title="Click to toggle"></div>
+                <h3 class="hndle"><span>Your WooCommerce Shop At a Glance</h3>
+                <div class="inside">
+                  <div class="table table_content">
+
+                    <p class="sub">Content</p>
+                    <table>
+                      <tbody>
+                        <tr class="first">
+                          <td class="b first"><a href="edit.php?post_type=product"><?php echo $woo_products ?></a></td>
+                          <td class="t"><a href="edit.php?post_type=product">Products<a/></td>
+                        </tr>
+                        <tr class="first">
+                          <td class="b first"><a href="edit-tags.php?taxonomy=product_cat&post_type=product"><?php echo $woo_categories ?></a></td>
+                          <td class="t"><a href="edit-tags.php?taxonomy=product_cat&post_type=product">Product Categories</a></td>
+                        </tr>
+                          <tr class="first"><td class="b first"><a href="edit.php?post_type=shop_coupon"><?php echo $woo_coupons ?></a></td>
+                          <td class="t"><a href="edit.php?post_type=shop_coupon">Coupons</a></td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <p class="sub orders_sub">Orders</p>
+                    <table>
+                      <tbody>
+                        <tr class="first">
+                          <td class="b first"><a href="edit.php?post_type=shop_order"><?php echo $woo_orders_pending ?></a></td>
+                          <td class="t"><a href="edit.php?post_type=shop_order" class="pending">Pending<a/></td>
+                        </tr>
+                        <tr class="first">
+                          <td class="b first"><a href="edit.php?post_type=shop_order"><?php echo $woo_orders_onhold ?></a></td>
+                          <td class="t"><a href="edit.php?post_type=shop_order" class="onhold">On-Hold<a/></td>
+                        </tr>
+                        <tr class="first">
+                          <td class="b first"><a href="edit.php?post_type=shop_order"><?php echo $woo_orders_processing ?></a></td>
+                          <td class="t"><a href="edit.php?post_type=shop_order" class="processing">Processing</a></td>
+                        </tr>
+                        <tr class="first">
+                          <td class="b first"><a href="edit.php?post_type=shop_order"><?php echo $woo_orders_completed ?></a></td>
+                          <td class="t"><a href="edit.php?post_type=shop_order" class="complete">Completed</a></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                
+                  </div><!-- .table -->       
+                </div><!-- .inside -->
+              </div><!-- .postbox -->
+            </div><!-- .postbox-container -->
+            
+            <?php
+            // wpec at a glance
+            $wpec_products  = count( get_posts( array(
+              'numberposts'     => -1,
+              'post_type'       => 'wpsc-product',
+              'post_status'     => 'publish' ,
+            )));
+            $wpec_categories =  count( get_categories( array(
+              'taxonomy' => 'wpsc_product_category'
+            ))); 
+            $wpec_coupons = $wpdb->get_var( $wpdb->prepare("
+              SELECT COUNT(*) FROM " . $wpdb->prefix . "wpsc_coupon_codes
+            "));
+            ?>
+            
+            <div class="postbox-container">
+              <div class="postbox">
+                <div class="handlediv" title="Click to toggle"></div>
+                <h3 class="hndle"><span>Your WPEC Shop At a Glance</h3>
+                <div class="inside">
+                  <div class="table table_content">
+
+                    <p class="sub">Content</p>
+                    <table><tbody>
+                    <tr class="first"><td class="b first"><a href="#"><?php echo $wpec_products ?></a></td><td class="t"><a href="#">Products<a/></td></tr>
+                    <tr class="first"><td class="b first"><a href="#"><?php echo $wpec_categories ?></a></td><td class="t"><a href="#">Product Categories</a></td></tr>
+                    <tr class="first"><td class="b first"><a href="#"><?php echo $wpec_coupons ?></a></td><td class="t"><a href="#">Coupons</a></td></tr>
+                    </tbody></table>
+
+                    <p class="sub orders_sub">Orders</p>
+                    <table><tbody>
+                    <tr class="first"><td class="b first"><a href="edit.php?post_type=product"><?php echo $woo_orders_pending ?></a></td><td class="t"><a href="#" class="pending">Pending<a/></td></tr>
+                    <tr class="first"><td class="b first"><a href="#"><?php echo $woo_orders_onhold ?></a></td><td class="t"><a href="#" class="onhold">On-Hold<a/></td></tr>
+                    <tr class="first"><td class="b first"><a href="#"><?php echo $woo_orders_processing ?></a></td><td class="t"><a href="#" class="processing">Processing</a></td></tr>
+                    <tr class="first"><td class="b first"><a href="#"><?php echo $woo_orders_completed ?></a></td><td class="t"><a href="#" class="complete">Completed</a></td></tr>
+                    </tbody></table>
+              
+                  </div><!-- .table -->
+                </div><!-- .inside -->
+              </div><!-- .postbox -->
+            </div><!-- .postbox-container -->
+
+          </div><!-- #glance -->
+          <?php
+        } // at_a_glance()
+
         function conversion(){ 
           $this->get_posts();
           $this->update_shop_settings();          
-          $this->update_products();*/
+          $this->update_products();
           $this->update_categories(); 
           $this->update_coupons();
-          // $this->delete_redundant_wpec_datbase_entries();  
-          $this->show_log();          
+          // $this->delete_redundant_wpec_datbase_entries();         
         }// END: conversion
         
         function show_log(){
-          $this->output .= '<p>Conversion Finished</p>';
-
-          if( $this->log["products"] ){
-            $this->output .= '<h3>Products</h3><ul id="product_list">';
-            //show products that have been converted
-            foreach( $this->log["products"] as $product ){
-              $this->output .= '<li>';
-              $this->output .= '<p class="id">ID: '. $product["id"] .'</p>';
-              $this->output .= '<p class="title">Title: '. $product["title"] .'</p>';
-              $this->output .= '</li>';
-            }
-            $this->output .= '</ul>';
-          }
+          ?>
+          <p>Conversion Finished</p>
+          <?php if( $this->log["products"] ): ?>
+            <h3>Products</h3>
+            <ul id="product_list">
+              <?php //show products that have been converted
+              foreach( $this->log["products"] as $product ): ?>
+                <li><p class="id">ID: <?php echo $product["id"] ?></p><p class="title">Title: <?php echo $product["title"] ?></p></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php endif; ?>
           
-          if( $this->log["categories"] ){
-            $this->output .= '<h3>Categories</h3>';
-            $this->output .= $this->log["categories"]["updated"] . ' categories updated';
-          }
+          <?php if( $this->log["categories"] ): ?>
+            <h3>Categories</h3>
+            <?php echo $this->log["categories"]["updated"] . ' categories updated'; ?>
+          <?php endif;
           
         }
         
@@ -278,10 +416,10 @@ if (!class_exists("ralc_wpec_to_woo")) {
 
           //$wpdb->show_errors(); 
           // count how many categories there are to convert
-          $category_count = $wpdb->get_var( $wpdb->prepare(
-                                            "SELECT COUNT(*) FROM $wpdb->term_taxonomy 
-                                            WHERE taxonomy='wpsc_product_category'"  
-                                           ));
+          $category_count = $wpdb->get_var( $wpdb->prepare("
+            SELECT COUNT(*) FROM $wpdb->term_taxonomy 
+            WHERE taxonomy='wpsc_product_category'"  
+          ));
           // log the count                                
           $this->log["categories"] = array( "updated" => $category_count );
           
@@ -378,12 +516,12 @@ if (!class_exists("ralc_wpec_to_woo")) {
             
             $post_title = sanitize_title( $coupon['coupon_code'] );
             // check to see if coupon has already been added
-            $coupon_exists = $wpdb->get_var($wpdb->prepare(
-                                          "SELECT ID FROM $wpdb->posts 
-                                          WHERE post_title = %s 
-                                          AND post_type = 'shop_coupon'",
-                                          $post_title
-                                          ));
+            $coupon_exists = $wpdb->get_var($wpdb->prepare("
+              SELECT ID FROM $wpdb->posts 
+              WHERE post_title = %s 
+              AND post_type = 'shop_coupon'",
+              $post_title
+            ));
             
 
             if( !$coupon_exists ):
