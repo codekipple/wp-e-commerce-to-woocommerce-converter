@@ -1,3 +1,4 @@
+#glance{ overflow:auto; }
 #glance .postbox-container{ width:49%; }
 #glance .table{ position:relative; }
 #glance .table_content{ border-top:1px solid #ECECEC }
@@ -20,3 +21,5 @@
 #glance .pending{ color:#E66F00; }
 #glance .onhold{ color:red; }
 #glance .complete{ color:green; }
+.instruction{ margin-top:0; }
+#log .inside{ font-size:12px; padding-bottom:20px; overflow:auto; }

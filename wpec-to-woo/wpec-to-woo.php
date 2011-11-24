@@ -51,10 +51,10 @@ if (!class_exists("ralc_wpec_to_woo")) {
             }
             $this->at_a_glance();
             ?>
-            <p>Press the button for conversion goodness.</p>
-              <form method="post" action="tools.php?page=wpec-to-woo">
+            <p class="instruction">Press the button for conversion goodness.</p>
+            <form method="post" action="tools.php?page=wpec-to-woo">
               <input type="hidden" name="order" value="go_go_go" />
-              <input class="button-primary" type="submit" value="go go go" />
+              <input class="button-primary" type="submit" value="Convert My Store" />
             </form>
             <?php
             if( $_POST['order'] == 'go_go_go' ){          
@@ -66,48 +66,13 @@ if (!class_exists("ralc_wpec_to_woo")) {
         } //END: plugin_options        
         
         function at_a_glance(){
-          global $wpdb;
+          global $wpdb; global $woocommerce;
           ?>
           <div id="glance" class="metabox-holder">
+          
             <?php
-            // woocommerce at a glance
-            $woo_products  = count( get_posts( array(
-              'numberposts'     => -1,
-              'post_type'       => 'product',
-              'post_status'     => 'publish' ,
-            )));
-            $woo_categories =  count( get_categories( array(
-              'taxonomy' => 'product_cat'
-            )));           
-            $woo_coupons  = count( get_posts( array(
-              'numberposts'     => -1,
-              'post_type'       => 'shop_coupon',
-              'post_status'     => 'publish' ,
-            )));
-            $orders_args = array(
-                'numberposts'     => -1,
-                'post_type'       => 'shop_order',
-                'post_status'     => 'publish' ,
-                'tax_query' => array(
-                  array(
-                    'taxonomy' => 'shop_order_status',
-                    'terms' => array('completed', 'processing', 'on-hold'),
-                    'field' => 'slug',
-                    'operator' => 'IN'
-                  )
-                )
-            );
-            $orders_args['tax_query'][0]['terms'] = array('pending');
-            $woo_orders_pending  = count( get_posts( $orders_args ) );
-            
-            $orders_args['tax_query'][0]['terms'] = array('on-hold');
-            $woo_orders_onhold  = count( get_posts( $orders_args ) );
-            
-            $orders_args['tax_query'][0]['terms'] = array('processing');
-            $woo_orders_processing  = count( get_posts( $orders_args ) );
-            
-            $orders_args['tax_query'][0]['terms'] = array('completed');
-            $woo_orders_completed  = count( get_posts( $orders_args ) );
+            // woocommerce at a glance                     
+            $woocommerce_orders = &new woocommerce_orders();
             ?>
             <div class="postbox-container">
               <div class="postbox">
@@ -120,14 +85,33 @@ if (!class_exists("ralc_wpec_to_woo")) {
                     <table>
                       <tbody>
                         <tr class="first">
-                          <td class="b first"><a href="edit.php?post_type=product"><?php echo $woo_products ?></a></td>
+                          <td class="b first"><a href="edit.php?post_type=product">
+                              <?php 
+                              $woo_products = wp_count_posts( 'product' );
+                              echo number_format_i18n( $woo_products->publish ); 
+                              ?>
+                          </a></td>
                           <td class="t"><a href="edit.php?post_type=product">Products<a/></td>
                         </tr>
-                        <tr class="first">
-                          <td class="b first"><a href="edit-tags.php?taxonomy=product_cat&post_type=product"><?php echo $woo_categories ?></a></td>
+                        <tr>
+                          <td class="b first"><a href="edit-tags.php?taxonomy=product_cat&post_type=product"><?php echo wp_count_terms('product_cat') ?></a></td>
                           <td class="t"><a href="edit-tags.php?taxonomy=product_cat&post_type=product">Product Categories</a></td>
                         </tr>
-                          <tr class="first"><td class="b first"><a href="edit.php?post_type=shop_coupon"><?php echo $woo_coupons ?></a></td>
+                        <tr>
+                          <td class="b first"><a href="edit-tags.php?taxonomy=product_tag&post_type=product"><?php echo wp_count_terms('product_tag'); ?></a></td>
+                          <td class="t"><a href="edit-tags.php?taxonomy=product_tag&post_type=product">Product Tags</a></td>
+                        </tr>
+                        <tr>
+                          <td class="b first"><a href="admin.php?page=woocommerce_attributes"><?php echo sizeof($woocommerce->get_attribute_taxonomies()); ?></a></td>
+                          <td class="t"><a href="admin.php?page=woocommerce_attributes">Attribute taxonomies</a></td>
+                        </tr>
+                        <tr class="first">
+                          <td class="b first"><a href="edit.php?post_type=shop_coupon">
+                              <?php
+                              $woo_coupons = wp_count_posts( 'shop_coupon' );
+                              echo number_format_i18n( $woo_coupons->publish );                                
+                              ?>
+                          </a></td>
                           <td class="t"><a href="edit.php?post_type=shop_coupon">Coupons</a></td>
                         </tr>
                       </tbody>
@@ -139,20 +123,20 @@ if (!class_exists("ralc_wpec_to_woo")) {
                     <table>
                       <tbody>
                         <tr class="first">
-                          <td class="b first"><a href="edit.php?post_type=shop_order"><?php echo $woo_orders_pending ?></a></td>
-                          <td class="t"><a href="edit.php?post_type=shop_order" class="pending">Pending<a/></td>
+                          <td class="b first"><a href="edit.php?post_type=shop_order&shop_order_status=pending"><?php echo $woocommerce_orders->pending_count; ?></a></td>
+                          <td class="t"><a href="edit.php?post_type=shop_order&shop_order_status=pending" class="pending">Pending<a/></td>
                         </tr>
-                        <tr class="first">
-                          <td class="b first"><a href="edit.php?post_type=shop_order"><?php echo $woo_orders_onhold ?></a></td>
-                          <td class="t"><a href="edit.php?post_type=shop_order" class="onhold">On-Hold<a/></td>
+                        <tr>
+                          <td class="b first"><a href="edit.php?post_type=shop_order&shop_order_status=on-hold"><?php echo $woocommerce_orders->on_hold_count; ?></a></td>
+                          <td class="t"><a href="edit.php?post_type=shop_order&shop_order_status=on-hold" class="onhold">On-Hold<a/></td>
                         </tr>
-                        <tr class="first">
-                          <td class="b first"><a href="edit.php?post_type=shop_order"><?php echo $woo_orders_processing ?></a></td>
-                          <td class="t"><a href="edit.php?post_type=shop_order" class="processing">Processing</a></td>
+                        <tr>
+                          <td class="b first"><a href="edit.php?post_type=shop_order&shop_order_status=processing"><?php echo $woocommerce_orders->processing_count; ?></a></td>
+                          <td class="t"><a href="edit.php?post_type=shop_order&shop_order_status=processing" class="processing">Processing</a></td>
                         </tr>
-                        <tr class="first">
-                          <td class="b first"><a href="edit.php?post_type=shop_order"><?php echo $woo_orders_completed ?></a></td>
-                          <td class="t"><a href="edit.php?post_type=shop_order" class="complete">Completed</a></td>
+                        <tr>
+                          <td class="b first"><a href="edit.php?post_type=shop_order&shop_order_status=completed"><?php echo $woocommerce_orders->completed_count; ?></a></td>
+                          <td class="t"><a href="edit.php?post_type=shop_order&shop_order_status=completed" class="complete">Completed</a></td>
                         </tr>
                       </tbody>
                     </table>                
@@ -162,21 +146,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
               </div><!-- .postbox -->
             </div><!-- .postbox-container -->
             
-            <?php
-            // wpec at a glance
-            $wpec_products  = count( get_posts( array(
-              'numberposts'     => -1,
-              'post_type'       => 'wpsc-product',
-              'post_status'     => 'publish' ,
-            )));
-            $wpec_categories =  count( get_categories( array(
-              'taxonomy' => 'wpsc_product_category'
-            ))); 
-            $wpec_coupons = $wpdb->get_var( $wpdb->prepare("
-              SELECT COUNT(*) FROM " . $wpdb->prefix . "wpsc_coupon_codes
-            "));
-            ?>
-            
+            <?php // wpec at a glance ?>            
             <div class="postbox-container">
               <div class="postbox">
                 <div class="handlediv" title="Click to toggle"></div>
@@ -185,21 +155,67 @@ if (!class_exists("ralc_wpec_to_woo")) {
                 
                   <div class="table table_content">
                     <p class="sub">Content</p>
-                    <table><tbody>
-                    <tr class="first"><td class="b first"><a href="#"><?php echo $wpec_products ?></a></td><td class="t"><a href="#">Products<a/></td></tr>
-                    <tr class="first"><td class="b first"><a href="#"><?php echo $wpec_categories ?></a></td><td class="t"><a href="#">Product Categories</a></td></tr>
-                    <tr class="first"><td class="b first"><a href="#"><?php echo $wpec_coupons ?></a></td><td class="t"><a href="#">Coupons</a></td></tr>
-                    </tbody></table>           
+                    <table>
+                      <tbody>
+                        <tr class="first">
+                          <td class="b first"><a href="#">
+                            <?php 
+                            $wpec_products = wp_count_posts( 'wpsc-product' );
+                            echo number_format_i18n( $wpec_products->publish ); 
+                            ?>
+                          </a></td>
+                          <td class="t"><a href="#">Products<a/></td>
+                        </tr>
+                        <tr>
+                          <td class="b first"><a href="#">
+                            <?php 
+                            $wpec_categories = wp_count_terms('wpsc_product_category');
+                            echo ( isset($wpec_categories->errors) ? 0 : $wpec_categories );
+                            ?>
+                          </a></td>
+                          <td class="t"><a href="#">Product Categories</a></td>
+                        </tr>
+                        <tr>
+                          <td class="b first"><a href="#"><?php echo wp_count_terms('product_tag'); ?></a></td>
+                          <td class="t"><a href="#">Product Tags</a></td>
+                        </tr>
+                        <tr>
+                          <td class="b first"><a href="#">
+                            <?php
+                            $wpec_coupons = $wpdb->get_var( $wpdb->prepare("
+                              SELECT COUNT(*) FROM " . $wpdb->prefix . "wpsc_coupon_codes
+                            "));
+                            echo $wpec_coupons;
+                            ?>
+                          </a></td>
+                          <td class="t"><a href="#">Coupons</a></td>
+                        </tr>
+                      </tbody>
+                    </table>           
                   </div><!-- .table -->
                   
                   <div class="table table_orders">
                     <p class="sub orders_sub">Orders</p>
-                    <table><tbody>
-                    <tr class="first"><td class="b first"><a href="edit.php?post_type=product"><?php echo $woo_orders_pending ?></a></td><td class="t"><a href="#" class="pending">Pending<a/></td></tr>
-                    <tr class="first"><td class="b first"><a href="#"><?php echo $woo_orders_onhold ?></a></td><td class="t"><a href="#" class="onhold">On-Hold<a/></td></tr>
-                    <tr class="first"><td class="b first"><a href="#"><?php echo $woo_orders_processing ?></a></td><td class="t"><a href="#" class="processing">Processing</a></td></tr>
-                    <tr class="first"><td class="b first"><a href="#"><?php echo $woo_orders_completed ?></a></td><td class="t"><a href="#" class="complete">Completed</a></td></tr>
-                    </tbody></table>              
+                    <table>
+                      <tbody>
+                      <tr class="first">
+                        <td class="b first"><a href="edit.php?post_type=product"><?php echo $woo_orders_pending ?></a></td>
+                        <td class="t"><a href="#" class="pending">Pending<a/></td>
+                      </tr>
+                      <tr>
+                        <td class="b first"><a href="#"><?php echo $woo_orders_onhold ?></a></td>
+                        <td class="t"><a href="#" class="onhold">On-Hold<a/></td>
+                      </tr>
+                      <tr>
+                        <td class="b first"><a href="#"><?php echo $woo_orders_processing ?></a></td>
+                        <td class="t"><a href="#" class="processing">Processing</a></td>
+                      </tr>
+                      <tr>
+                        <td class="b first"><a href="#"><?php echo $woo_orders_completed ?></a></td>
+                        <td class="t"><a href="#" class="complete">Completed</a></td>
+                      </tr>
+                      </tbody>
+                    </table>              
                   </div><!-- .table -->
                   
                 </div><!-- .inside -->
@@ -216,27 +232,96 @@ if (!class_exists("ralc_wpec_to_woo")) {
           $this->update_products();
           $this->update_categories(); 
           $this->update_coupons();
+          // tags don't need to be updated as both wpec and woo use the same name for the taxonomy 'product_tag'
           // $this->delete_redundant_wpec_datbase_entries();         
         }// END: conversion
         
         function show_log(){
           ?>
-          <p>Conversion Finished</p>
-          <?php if( $this->log["products"] ): ?>
-            <h3>Products</h3>
-            <ul id="product_list">
-              <?php //show products that have been converted
-              foreach( $this->log["products"] as $product ): ?>
-                <li><p class="id">ID: <?php echo $product["id"] ?></p><p class="title">Title: <?php echo $product["title"] ?></p></li>
-              <?php endforeach; ?>
-            </ul>
-          <?php endif; ?>
-          
-          <?php if( $this->log["categories"] ): ?>
-            <h3>Categories</h3>
-            <?php echo $this->log["categories"]["updated"] . ' categories updated'; ?>
-          <?php endif;
-          
+          <div id="log" class="metabox-holder">
+            <div class="postbox">
+              <div class="handlediv" title="Click to toggle"></div>
+              <h3 class="hndle"><span>Conversion Log</h3>
+              <div class="inside">
+
+                <div class="segment">
+                  <h4>Products</h4>
+                  <table>
+                    <tbody>
+                      <tr>
+                        <td><?php echo count( $this->log["products"] ) ?> products updated</td>
+                      </tr>
+                      <?php if( $this->log["products"] ): ?>
+                        <?php foreach( $this->log["products"] as $product ): ?>
+                          <tr>
+                            <td>ID: <?php echo $product["id"] ?></td>
+                            <td>Title: <?php echo $product["title"] ?></td>
+                          </tr>
+                        <?php endforeach; ?>
+                      <?php endif; ?>
+                    </tbody>
+                  </table>
+                </div><!-- .segment -->
+                
+                <?php if( $this->log["categories"] ): ?>
+                  <div class="segment">
+                    <h4>Categories</h4>
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td><?php echo $this->log["categories"]["updated"] . ' categories updated'; ?></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div><!-- .segment -->
+                <?php endif; ?>
+                
+                <div class="segment">
+                  <h4>Coupons</h4>
+                  <table>
+                    <tbody>
+                      <tr>
+                        <td><?php echo count( $this->log["coupons"] ) ?> coupons updated</td>
+                      </tr>
+                      <?php if( $this->log["coupons"] ): ?>                        
+                        <?php foreach( $this->log["coupons"] as $coupon ): ?>
+                          <tr>
+                            <td>Title: <a href="post.php/<?php echo $coupon["link"] ?>"><?php echo $coupon["title"] ?></a></td>
+                            <td>Active: <?php echo $coupon["active"] ?></td>
+                            <?php if($coupon["conditions"]): ?>
+                              <td>Notice: This coupon was set to be in-active because it currently makes use of the conditions feature of wpec which is not supported by woocommerce</td>
+                            <?php endif; ?>
+                            <?php if($coupon["free-shipping"]): ?>
+                              <td>Notice: This coupon was set to be in-active because it currently makes use of the free shipping feature of wpec which is not supported by woocommerce</td>
+                            <?php endif; ?>
+                          </tr>
+                        <?php endforeach; ?>
+                      <?php endif; ?>
+                    </tbody>
+                  </table>
+                </div><!-- .segment -->
+                
+                <div class="segment">
+                  <h4>Orders</h4>
+                  <table>
+                    <tbody>
+                      <tr>
+                        <td><?php echo count( $this->log["orders"] ) ?> orders updated</td>
+                      </tr>
+                      <?php if( $this->log["orders"] ): ?>
+                        <?php foreach( $this->log["orders"] as $order ): ?>
+                          <tr>
+                            <td>Name: <a href="post.php/<?php echo $order["link"] ?>"><?php echo $order["name"] ?></a></td>
+                          </tr>
+                        <?php endforeach; ?>
+                      <?php endif; ?>
+                    </tbody>
+                  </table>
+                </div><!-- .segment -->
+                
+              </div><!-- .inside -->
+            </div><!-- .postbox -->
+          </div><!-- #log --><?php
         }
         
         function get_posts(){
@@ -525,8 +610,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
               WHERE post_title = %s 
               AND post_type = 'shop_coupon'",
               $post_title
-            ));
-            
+            ));            
 
             if( !$coupon_exists ):
               // create a new post with custom post type 'shop_coupon'
@@ -547,12 +631,23 @@ if (!class_exists("ralc_wpec_to_woo")) {
               $post_id = wp_insert_post( $post, true );
               
               if( !isset($post_id->errors) ){
+                // save details of the created coupon into the log
+                $coupon_log = array( 
+                  "title" => $post_title,
+                  "link" => "?post=". $post_id ."&action=edit"
+                );
+                
                 // if coupon is in-active or has conditions set the expiry date to a day in the past
                 $conditions = unserialize( $coupon['condition'] );
                 if( $coupon['active'] == "0" || count( $conditions ) > 0 || $coupon['is-percentage'] == "2" ){
                   if( count( $conditions ) > 0 ){
-                    // if conditions are present or discount is free shipping then add explanation warning to output saying 
-                    // some aspects of the coupn is not compatible with woocommererce
+                    // if conditions are present we will explain to the user why the coupon is set to unactive
+                    $coupon_log["conditions"] = true;
+                  }
+                  if( $coupon['is-percentage'] == "2" ){
+                    // freeshipping is not supported by woocommerce
+                    // if is free shipping we will explain to the user why the coupon is set to unactive
+                    $coupon_log["free-shipping"] = true;
                   }
                   // set expiry in the past
                   $expiray_date = date_i18n('Y-m-d', strtotime("-1 year") );
@@ -605,8 +700,10 @@ if (!class_exists("ralc_wpec_to_woo")) {
                 }else{
                   $usage_limit = '';
                 }
-                update_post_meta($post_id, 'usage_limit', $usage_limit);
+                update_post_meta($post_id, 'usage_limit', $usage_limit);                
                 
+                // save coupon info to log
+                $this->log["coupons"][] = $coupon_log;
               }else{
                 // coupon insertian failed, give feedback to user
               }
