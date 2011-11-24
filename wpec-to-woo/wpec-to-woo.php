@@ -246,16 +246,18 @@ if (!class_exists("ralc_wpec_to_woo")) {
 
                 <div class="segment">
                   <h4>Products</h4>
+                  <h5><?php echo count( $this->log["products"] ) ?> products updated</h5>
                   <table>
                     <tbody>
-                      <tr>
-                        <td><?php echo count( $this->log["products"] ) ?> products updated</td>
-                      </tr>
                       <?php if( $this->log["products"] ): ?>
+                        <tr>
+                          <th>ID</th>
+                          <th>Title</th>
+                        </tr>
                         <?php foreach( $this->log["products"] as $product ): ?>
                           <tr>
-                            <td>ID: <?php echo $product["id"] ?></td>
-                            <td>Title: <?php echo $product["title"] ?></td>
+                            <td><?php echo $product["id"] ?></td>
+                            <td><a href="post.php<?php echo $product["link"] ?>"><?php echo $product["title"] ?></a></td>
                           </tr>
                         <?php endforeach; ?>
                       <?php endif; ?>
@@ -266,10 +268,10 @@ if (!class_exists("ralc_wpec_to_woo")) {
                 <?php if( $this->log["categories"] ): ?>
                   <div class="segment">
                     <h4>Categories</h4>
+                    <h5><?php echo $this->log["categories"]["updated"] ?> categories updated</h5>
                     <table>
                       <tbody>
                         <tr>
-                          <td><?php echo $this->log["categories"]["updated"] . ' categories updated'; ?></td>
                         </tr>
                       </tbody>
                     </table>
@@ -278,21 +280,25 @@ if (!class_exists("ralc_wpec_to_woo")) {
                 
                 <div class="segment">
                   <h4>Coupons</h4>
+                  <h5><?php echo count( $this->log["coupons"] ) ?> coupons updated</h5>
                   <table>
                     <tbody>
-                      <tr>
-                        <td><?php echo count( $this->log["coupons"] ) ?> coupons updated</td>
-                      </tr>
                       <?php if( $this->log["coupons"] ): ?>                        
                         <?php foreach( $this->log["coupons"] as $coupon ): ?>
                           <tr>
-                            <td>Title: <a href="post.php/<?php echo $coupon["link"] ?>"><?php echo $coupon["title"] ?></a></td>
-                            <td>Active: <?php echo $coupon["active"] ?></td>
-                            <?php if($coupon["conditions"]): ?>
-                              <td>Notice: This coupon was set to be in-active because it currently makes use of the conditions feature of wpec which is not supported by woocommerce</td>
-                            <?php endif; ?>
-                            <?php if($coupon["free-shipping"]): ?>
-                              <td>Notice: This coupon was set to be in-active because it currently makes use of the free shipping feature of wpec which is not supported by woocommerce</td>
+                            <th>Title</th>
+                            <th>Active</th>
+                            <th>Notices</th>
+                          </tr>
+                          <tr>
+                            <td><a href="post.php/<?php echo $coupon["link"] ?>"><?php echo $coupon["title"] ?></a></td>
+                            <td><?php echo $coupon["active"] ?></td>
+                            <?php if($coupon["conditions"] && $coupon["free-shipping"] ): ?>
+                              <td>This coupon was set to be in-active because it currently makes use of the conditions feature and the free shipping of wpec which is not supported by woocommerce</td>
+                            <?php elseif($coupon["conditions"]): ?>
+                              <td>This coupon was set to be in-active because it currently makes use of the conditions feature of wpec which is not supported by woocommerce</td>
+                            <?php elseif($coupon["free-shipping"]): ?>
+                              <td>This coupon was set to be in-active because it currently makes use of the free shipping feature of wpec which is not supported by woocommerce</td>
                             <?php endif; ?>
                           </tr>
                         <?php endforeach; ?>
@@ -303,15 +309,16 @@ if (!class_exists("ralc_wpec_to_woo")) {
                 
                 <div class="segment">
                   <h4>Orders</h4>
+                  <h5><?php echo count( $this->log["orders"] ) ?> orders updated</h5>
                   <table>
                     <tbody>
-                      <tr>
-                        <td><?php echo count( $this->log["orders"] ) ?> orders updated</td>
-                      </tr>
                       <?php if( $this->log["orders"] ): ?>
+                        <tr>
+                          <th>Name</th>
+                        </tr>
                         <?php foreach( $this->log["orders"] as $order ): ?>
                           <tr>
-                            <td>Name: <a href="post.php/<?php echo $order["link"] ?>"><?php echo $order["name"] ?></a></td>
+                            <td><a href="post.php/<?php echo $order["link"] ?>"><?php echo $order["name"] ?></a></td>
                           </tr>
                         <?php endforeach; ?>
                       <?php endif; ?>
@@ -325,7 +332,11 @@ if (!class_exists("ralc_wpec_to_woo")) {
         }
         
         function get_posts(){
-          $args = array( 'post_type' => $this->old_post_type, 'posts_per_page' => -1 );
+          $args = array( 
+            'post_type' => $this->old_post_type, 
+            'posts_per_page' => -1,
+            'post_status' => array('publish','pending','draft','auto-draft','future','private','trash')            
+          );
           $this->products = new WP_Query( $args );
         }
         
@@ -492,7 +503,11 @@ if (!class_exists("ralc_wpec_to_woo")) {
             // ______________________________
             
             // add product to log
-            $this->log["products"][] = array("id" => $post_id, "title" => get_the_title() );
+            $this->log["products"][] = array(
+              "id" => $post_id, 
+              "title" => get_the_title(),
+              "link" => "?post=". $post_id ."&action=edit"
+            );
           endwhile;    
 
         }// END: update_products
@@ -580,11 +595,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
           
           // ______________________________
 
-        }
-        
-        function update_orders(){
-        
-        }
+        }  
         
         function update_coupons(){
           global $wpdb;
@@ -715,6 +726,12 @@ if (!class_exists("ralc_wpec_to_woo")) {
           // end: loop of coupons
 
         }// END: update_coupons()
+        
+        function update_orders(){
+          
+          
+          
+        }// END: update_orders()
         
         function delete_redundant_wpec_datbase_entries(){
           global $wpdb;
