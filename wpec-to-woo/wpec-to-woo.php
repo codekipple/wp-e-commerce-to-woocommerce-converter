@@ -227,7 +227,6 @@ if (!class_exists("ralc_wpec_to_woo")) {
         } // at_a_glance()
 
         function conversion(){ 
-          $this->get_posts();
           $this->update_shop_settings();          
           $this->update_products();
           $this->update_categories(); 
@@ -331,25 +330,22 @@ if (!class_exists("ralc_wpec_to_woo")) {
           </div><!-- #log --><?php
         }
         
-        function get_posts(){
-          $args = array( 
-            'post_type' => $this->old_post_type, 
-            'posts_per_page' => -1,
-            'post_status' => array('publish','pending','draft','auto-draft','future','private','trash')            
-          );
-          $this->products = new WP_Query( $args );
-        }
-        
         /*
          * convert post type to woocommerce post type
          * update price field meta
          */
         function update_products(){
+          $args = array( 
+            'post_type' => $this->old_post_type, 
+            'posts_per_page' => -1,
+            'post_status' => array('publish','pending','draft','auto-draft','future','private','trash')            
+          );
+          $products = new WP_Query( $args );
           $count = 0;
           //wp-e stores all the featured products in one place
           $featured_products = get_option('sticky_products', false);
 
-          while ( $this->products->have_posts() ) : $this->products->the_post();
+          while ( $products->have_posts() ) : $products->the_post();
             $post_id = get_the_id();
             $count ++;
             
