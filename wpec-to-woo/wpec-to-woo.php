@@ -193,25 +193,51 @@ if (!class_exists("ralc_wpec_to_woo")) {
                       </tbody>
                     </table>           
                   </div><!-- .table -->
-                  
+                  <?php
+                  /* col: processed
+                  wpec                            woo equivilant
+                  1 = Incomplete Sale             no equivilant i don't think 'On-Hold' would work
+                  2 = Order Received              Pending
+                  3 = Accepted Payment            Processing
+                  4 = Job Dispatched              Processing
+                  5 = Closed Order                Completed
+                  */
+                  $wpec_order_table = $wpdb->prefix . 'wpsc_purchase_logs';
+                  $wpec_pending = $wpdb->get_var($wpdb->prepare("
+                    SELECT COUNT(*) 
+                    FROM " . $wpec_order_table . " 
+                    WHERE processed = '2'
+                  "));
+                  $wpec_processing = $wpdb->get_var( $wpdb->prepare("
+                    SELECT COUNT(*) 
+                    FROM " . $wpec_order_table . "
+                    WHERE processed = '3' 
+                    OR processed = '4'
+                  "));
+                  $wpec_completed = $wpdb->get_var( $wpdb->prepare("
+                    SELECT COUNT(*) 
+                    FROM " . $wpec_order_table . "
+                    WHERE processed = '5'
+                  "));
+                  ?>
                   <div class="table table_orders">
                     <p class="sub orders_sub">Orders</p>
                     <table>
                       <tbody>
                       <tr class="first">
-                        <td class="b first"><a href="edit.php?post_type=product"><?php echo $woo_orders_pending ?></a></td>
+                        <td class="b first"><a href="edit.php?post_type=product"><?php echo $wpec_pending ?></a></td>
                         <td class="t"><a href="#" class="pending">Pending<a/></td>
                       </tr>
                       <tr>
-                        <td class="b first"><a href="#"><?php echo $woo_orders_onhold ?></a></td>
+                        <td class="b first"><a href="#">0</a></td>
                         <td class="t"><a href="#" class="onhold">On-Hold<a/></td>
                       </tr>
                       <tr>
-                        <td class="b first"><a href="#"><?php echo $woo_orders_processing ?></a></td>
+                        <td class="b first"><a href="#"><?php echo $wpec_processing ?></a></td>
                         <td class="t"><a href="#" class="processing">Processing</a></td>
                       </tr>
                       <tr>
-                        <td class="b first"><a href="#"><?php echo $woo_orders_completed ?></a></td>
+                        <td class="b first"><a href="#"><?php echo $wpec_completed ?></a></td>
                         <td class="t"><a href="#" class="complete">Completed</a></td>
                       </tr>
                       </tbody>
@@ -724,8 +750,18 @@ if (!class_exists("ralc_wpec_to_woo")) {
         }// END: update_coupons()
         
         function update_orders(){
-          
-          
+          global $wpdb;
+          // get all orders
+          $wpec_order_table = $wpdb->prefix . 'wpsc_purchase_logs';
+          $order_data = $wpdb->get_results( "SELECT * FROM `" . $wpec_order_table . "` ", ARRAY_A );
+          /* col: processed
+          wpec                            woo equivilant
+          1 = Incomplete Sale             no equivilant i don't think 'On-Hold' would work
+          2 = Order Received              Pending
+          3 = Accepted Payment            Processing
+          4 = Job Dispatched              Processing
+          5 = Closed Order                Completed
+          */
           
         }// END: update_orders()
         
