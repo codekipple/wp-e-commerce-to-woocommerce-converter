@@ -15,7 +15,9 @@ if (!class_exists("ralc_wpec_to_woo")) {
         var $products; // stores all the product posts
         var $old_post_type = 'wpsc-product'; //wpsc-product
         var $log; // stores a log of actions taken by the script during conversion
-        
+        // just get the id of the first administrator in the database
+        var $post_author;
+          
         function ralc_wpec_to_woo() { } // constructor
         
         function plugin_menu() {
@@ -253,6 +255,8 @@ if (!class_exists("ralc_wpec_to_woo")) {
         } // at_a_glance()
 
         function conversion(){ 
+          // just get the id of the first administrator in the database
+          $this->post_author = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->users;" ) );
           $this->update_shop_settings();          
           $this->update_products();
           $this->update_categories(); 
@@ -630,9 +634,6 @@ if (!class_exists("ralc_wpec_to_woo")) {
           // get the local timezone
           $post_date = date_i18n( 'Y-m-d H:i:s' );
           
-          // just get the id of the first administrator in the database
-          $post_author = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->users;" ) );
-          
           // loop through coupons            
           foreach ( (array)$coupon_data as $coupon ):  
             
@@ -650,7 +651,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
               $post = array(
                 'comment_status' => 'closed', // 'closed' means no comments.
                 'ping_status' => 'closed', // 'closed' means pingbacks or trackbacks turned off
-                'post_author' => $post_author, //The user ID number of the author.
+                'post_author' => $this->post_author, //The user ID number of the author.
                 //'post_content' => '', //The full text of the post.
                 'post_date' => $post_date, //The time post was made.
                 'post_date_gmt' => $post_date_gmt, //The time post was made, in GMT.
@@ -753,7 +754,14 @@ if (!class_exists("ralc_wpec_to_woo")) {
           global $wpdb;
           // get all orders
           $wpec_order_table = $wpdb->prefix . 'wpsc_purchase_logs';
+          $wpec_formdata_table = $wpdb->prefix . 'wpsc_submited_form_data';
           $order_data = $wpdb->get_results( "SELECT * FROM `" . $wpec_order_table . "` ", ARRAY_A );
+          
+          // get the gmt timezone         
+          $post_date_gmt = date_i18n( 'Y-m-d H:i:s', false, true );
+          // get the local timezone
+          $post_date = date_i18n( 'Y-m-d H:i:s' );
+          
           /* col: processed
           wpec                            woo equivilant
           1 = Incomplete Sale             no equivilant i don't think 'On-Hold' would work
@@ -762,6 +770,65 @@ if (!class_exists("ralc_wpec_to_woo")) {
           4 = Job Dispatched              Processing
           5 = Closed Order                Completed
           */
+          // loop through coupons            
+          foreach ( (array)$order_data as $order ):
+            $post_title = "Order &ndash; " . date( 'F d, Y', $order['date'] ) ." @ unknown time - wpec order:" . $order['id'];
+            // check to see if coupon has already been added
+            $order_exists = $wpdb->get_var($wpdb->prepare("
+              SELECT ID FROM $wpdb->posts 
+              WHERE post_title = %s 
+              AND post_type = 'shop_order'",
+              $post_title
+            )); 
+
+            if( !$order_exists ):
+              // create a new post with custom post type 'shop_coupon'
+              $post = array(
+                'comment_status' => 'closed',
+                'ping_status' => 'closed',
+                'post_author' => $this->post_author,
+                'post_date' => $post_date, //The time post was made.
+                'post_date_gmt' => $post_date_gmt, //The time post was made, in GMT.
+                //'post_name' => '', // The name (slug) for your post
+                'post_parent' => '0',
+                'post_status' => 'publish',
+                'post_title' => $post_title,
+                'post_type' => 'shop_order' 
+              );
+              
+              $form_data = $wpdb->get_results(
+                "SELECT * FROM 
+                `". $wpec_formdata_table. "` 
+                WHERE	`log_id` = '". $order['id'] ."'",
+                ARRAY_A
+              );
+              
+              // order data              
+                // order status
+                // customer
+                // customer note
+                // customer billing address
+                // customer shipping address
+              
+              // order items
+              
+              // order totals
+                // subtotal
+                // shipping & handling
+                // order shipping tax
+                // tax
+                // discount
+                // total
+              
+              // custom fields
+              
+              // order notes
+            
+            else:
+              // tell user this order already exists in the database!
+            endif; // if( !$order_exists )
+            
+          endforeach;
           
         }// END: update_orders()
         
