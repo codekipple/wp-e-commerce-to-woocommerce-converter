@@ -196,14 +196,6 @@ if (!class_exists("ralc_wpec_to_woo")) {
                     </table>           
                   </div><!-- .table -->
                   <?php
-                  /* col: processed
-                  wpec                            woo equivilant
-                  1 = Incomplete Sale             no equivilant i don't think 'On-Hold' would work
-                  2 = Order Received              Pending
-                  3 = Accepted Payment            Processing
-                  4 = Job Dispatched              Processing
-                  5 = Closed Order                Completed
-                  */
                   $wpec_order_table = $wpdb->prefix . 'wpsc_purchase_logs';
                   $wpec_pending = $wpdb->get_var($wpdb->prepare("
                     SELECT COUNT(*) 
@@ -255,6 +247,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
         } // at_a_glance()
 
         function conversion(){ 
+          global $wpdb;
           // just get the id of the first administrator in the database
           $this->post_author = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->users;" ) );
           $this->update_shop_settings();          
@@ -390,11 +383,14 @@ if (!class_exists("ralc_wpec_to_woo")) {
                        
             // ______ PRICE ______ 
             $regular_price = get_post_meta($post_id, '_wpsc_price', true);
-            update_post_meta($post_id, 'regular_price', $regular_price);   
-            update_post_meta($post_id, 'price', $regular_price);
-            
+            update_post_meta($post_id, 'regular_price', $regular_price);               
             $sale_price = get_post_meta($post_id, '_wpsc_special_price', true);
-            update_post_meta($post_id, 'sale_price', $sale_price);
+            if( $sale_price != '' && $sale_price != $regular_price ){
+              update_post_meta($post_id, 'price', $sale_price);
+              update_post_meta($post_id, 'sale_price', $sale_price);
+            }else{
+              update_post_meta($post_id, 'price', $regular_price);
+            }
             // ______________________________
             
             
@@ -764,11 +760,12 @@ if (!class_exists("ralc_wpec_to_woo")) {
           
           /* col: processed
           wpec                            woo equivilant
-          1 = Incomplete Sale             no equivilant i don't think 'On-Hold' would work
+          1 = Incomplete Sale             failed
           2 = Order Received              Pending
           3 = Accepted Payment            Processing
           4 = Job Dispatched              Processing
           5 = Closed Order                Completed
+          6 = payment declined            cancelled
           */
           // loop through coupons            
           foreach ( (array)$order_data as $order ):
@@ -795,21 +792,121 @@ if (!class_exists("ralc_wpec_to_woo")) {
                 'post_title' => $post_title,
                 'post_type' => 'shop_order' 
               );
+              // insert post
+              $post_id = wp_insert_post( $post, true );
               
-              $form_data = $wpdb->get_results(
-                "SELECT * FROM 
-                `". $wpec_formdata_table. "` 
-                WHERE	`log_id` = '". $order['id'] ."'",
-                ARRAY_A
-              );
+              /*
+              get order data
+              */
+              // wpec tables
+              $wpsc_cart_contents_table = $wpdb->prefix . 'wpsc_cart_contents';
+              $wpsc_purchase_logs_table = $wpdb->prefix . 'wpsc_purchase_logs';
+              $wpsc_submited_form_data_table = $wpdb->prefix . 'wpsc_submited_form_data';
+              $wpsc_checkout_forms_table = $wpdb->prefix . 'wpsc_checkout_forms';
               
-              // order data              
+              /*
+              this code is from: purchaselogs.class.php
+              also see here: display-logs.php
+              */
+              
+              // cart purchases
+              $cartcontent = $wpdb->get_results("
+                SELECT * 
+                FROM `" . $wpsc_cart_contents_table . "` 
+                WHERE `purchaseid`=" . $order['id'] . "
+              ");
+              
+              // extra info
+              $extrainfo = $wpdb->get_results("
+                SELECT DISTINCT `" . $wpsc_purchase_logs_table . "` . * 
+                FROM `" . $wpsc_submited_form_data_table . "`
+                LEFT JOIN `" . $wpsc_purchase_logs_table . "`
+                ON `" . $wpsc_submited_form_data_table . "`.`log_id` = `" . $wpsc_purchase_logs_table . "`.`id`
+                WHERE `" . $wpsc_purchase_logs_table . "`.`id`=" . $order['id'] . "
+              ");
+              $extrainfo = $extrainfo[0];              
+              
+              // userinfo
+              $userinfo = $wpdb->get_results("
+                SELECT 
+                  `" . $wpsc_submited_form_data_table . "`.`value`,
+                  `" . $wpsc_checkout_forms_table . "`.`name`,
+                  `" . $wpsc_checkout_forms_table . "`.`unique_name`
+                FROM `" . $wpsc_checkout_forms_table . "`
+                LEFT JOIN `" . $wpsc_submited_form_data_table . "`
+                ON `" . $wpsc_checkout_forms_table . "`.id = `" . $wpsc_submited_form_data_table . "`.`form_id`
+                WHERE `" . $wpsc_submited_form_data_table . "`.`log_id`=" . $order['id'] . "
+                ORDER BY `" . $wpsc_checkout_forms_table . "`.`checkout_order`
+              ", ARRAY_A );
+              
+              foreach ( (array)$userinfo as $input_row ) {
+                 if ( stristr( $input_row['unique_name'], 'shipping' ) ) {
+                    $shipping_address[$input_row['unique_name']] = $input_row;
+                 } elseif ( stristr( $input_row['unique_name'], 'billing' ) ) {
+                    $billing_address[$input_row['unique_name']] = $input_row;
+                 } else {                    
+                    $custom_checkout_fields[$input_row['name']] = $input_row;
+                 }
+              }
+
+              $purchased_item_count = count( $cartcontent );
+              
+              // order data                 
                 // order status
+                switch( $order['processed'] ){
+                  case "1":
+                    $status = 'failed';
+                    break;
+                  case "2":
+                    $status = 'pending';
+                    break;
+                  case "3":
+                    $status = 'processing';
+                    break;
+                  case "4":
+                    $status = 'processing';
+                    break;
+                  case "5":
+                    $status = 'completed';
+                    break;
+                  case "6":
+                    $status = 'cancelled';
+                    break;
+                }
+                wp_set_object_terms( $post_id, $cat_ids, 'shop_order_status' );
                 // customer
+                update_post_meta( $post_id, '_customer_user', $order['user_ID'] );
                 // customer note
+                
                 // customer billing address
+                update_post_meta( $post_id, '_billing_first_name', $order['user_ID'] );
+                update_post_meta( $post_id, '_billing_last_name', $order['user_ID'] );
+                update_post_meta( $post_id, '_billing_address_1', $order['user_ID'] );
+                update_post_meta( $post_id, '_billing_address_2', $order['user_ID'] );
+                update_post_meta( $post_id, '_billing_city', $order['user_ID'] );
+                update_post_meta( $post_id, '_billing_postcode', $order['user_ID'] );
+                update_post_meta( $post_id, '_billing_country', $order['user_ID'] );
+                update_post_meta( $post_id, '_billing_state', $order['user_ID'] );
+                update_post_meta( $post_id, '_billing_company', $order['user_ID'] );
+                update_post_meta( $post_id, '_billing_email', $order['user_ID'] );
+                update_post_meta( $post_id, '_customer_user', $order['user_ID'] );
+                update_post_meta( $post_id, '_billing_phone', $order['user_ID'] );                
+                                 
                 // customer shipping address
-              
+                /*
+                _shipping_first_name 	 
+                _shipping_last_name 	 
+                _shipping_company 	 
+                _shipping_address_1 	 
+                _shipping_address_2 	 
+                _shipping_city 	 
+                _shipping_postcode 	 
+                _shipping_country 	 
+                _shipping_state 	 
+                _shipping_method
+                */
+                //_order_key 	order_4ecc4d30854ea ??
+                
               // order items
               
               // order totals
