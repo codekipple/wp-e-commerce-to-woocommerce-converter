@@ -249,7 +249,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
         function conversion(){ 
           global $wpdb;
           // just get the id of the first administrator in the database
-          $this->post_author = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->users;" ) );
+          $this->post_author = $wpdb->get_var( "SELECT ID FROM $wpdb->users;" );
           $this->update_shop_settings();          
           $this->update_products();
           $this->update_categories(); 
@@ -383,13 +383,13 @@ if (!class_exists("ralc_wpec_to_woo")) {
                        
             // ______ PRICE ______ 
             $regular_price = get_post_meta($post_id, '_wpsc_price', true);
-            update_post_meta($post_id, 'regular_price', $regular_price);               
+            update_post_meta($post_id, '_regular_price', $regular_price);               
             $sale_price = get_post_meta($post_id, '_wpsc_special_price', true);
             if( $sale_price != '' && $sale_price != $regular_price ){
-              update_post_meta($post_id, 'price', $sale_price);
-              update_post_meta($post_id, 'sale_price', $sale_price);
+              update_post_meta($post_id, '_price', $sale_price);
+              update_post_meta($post_id, '_sale_price', $sale_price);
             }else{
-              update_post_meta($post_id, 'price', $regular_price);
+              update_post_meta($post_id, '_price', $regular_price);
             }
             // ______________________________
             
@@ -410,13 +410,13 @@ if (!class_exists("ralc_wpec_to_woo")) {
               $stock_status = 'instock';
             }
             // stock qty
-            update_post_meta($post_id, 'stock', $stock);
+            update_post_meta($post_id, '_stock', $stock);
             // stock status
-            update_post_meta($post_id, 'stock_status', $stock_status);
+            update_post_meta($post_id, '_stock_status', $stock_status);
             // manage stock
-            update_post_meta($post_id, 'manage_stock', $manage_stock);  
+            update_post_meta($post_id, '_manage_stock', $manage_stock);  
             // backorders
-            update_post_meta($post_id, 'backorders', $backorders);            
+            update_post_meta($post_id, '_backorders', $backorders);            
             // ______________________________
             
             
@@ -430,7 +430,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
               $visibility = 'hidden';
             }
             // visibility
-            update_post_meta($post_id, 'visibility', $visibility);
+            update_post_meta($post_id, '_visibility', $visibility);
             // ______________________________
             
             
@@ -441,19 +441,19 @@ if (!class_exists("ralc_wpec_to_woo")) {
               // try the old name
               $sku = $_wpsc_product_metadata['_wpsc_sku'];
             }
-            update_post_meta($post_id, 'sku', $sku);            
+            update_post_meta($post_id, '_sku', $sku);            
             
             // tax status
             $tax_status = 'taxable';
-            update_post_meta($post_id, 'tax_status', $sku);
+            update_post_meta($post_id, '_tax_status', $sku);
             // tax class empty sets it to stndard
             $tax_class = '';
-            update_post_meta($post_id, 'tax_class', $sku);
+            update_post_meta($post_id, '_tax_class', $sku);
             
             // weight
             $weight = $_wpsc_product_metadata['weight'];
 
-            update_post_meta($post_id, 'weight', $weight);
+            update_post_meta($post_id, '_weight', $weight);
             /*
              * WPEC use to use ['_wpsc_dimensions'] but then changed to use ['dimensions']
              * some products may still have the old variable name
@@ -465,13 +465,13 @@ if (!class_exists("ralc_wpec_to_woo")) {
             }
             // height
             $height = $dimensions['height'];
-            update_post_meta($post_id, 'height', $height);
+            update_post_meta($post_id, '_height', $height);
             //length
             $length = $dimensions['length'];
-            update_post_meta($post_id, 'length', $length);
+            update_post_meta($post_id, '_length', $length);
             //width
             $width = $dimensions['width'];
-            update_post_meta($post_id, 'width', $width);
+            update_post_meta($post_id, '_width', $width);
             
             /* woocommerce option update, weight unit and dimentions unit */
             if( $count == 1 ){
@@ -503,7 +503,7 @@ if (!class_exists("ralc_wpec_to_woo")) {
             }else{
               $featured = 'no';
             }
-            update_post_meta($post_id, 'featured', $featured);            
+            update_post_meta($post_id, '_featured', $featured);            
             // ______________________________
 
             
@@ -542,10 +542,10 @@ if (!class_exists("ralc_wpec_to_woo")) {
 
           //$wpdb->show_errors(); 
           // count how many categories there are to convert
-          $category_count = $wpdb->get_var( $wpdb->prepare("
+          $category_count = $wpdb->get_var( "
             SELECT COUNT(*) FROM $wpdb->term_taxonomy 
             WHERE taxonomy='wpsc_product_category'"  
-          ));
+          );
           // log the count                                
           $this->log["categories"] = array( "updated" => $category_count );
           
