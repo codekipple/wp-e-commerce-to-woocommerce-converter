@@ -1,4 +1,4 @@
-#Wp-e-commerce to woocommerce converter
+# WPEC to Woocommerce converter
 
 A Wordpress plugin to help migrating from WP E-Commerce to Woocommerce.
 
