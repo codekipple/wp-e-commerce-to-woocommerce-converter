@@ -74,7 +74,6 @@ if (!class_exists("ralc_wpec_to_woo")) {
         
     function at_a_glance(){
       global $wpdb; global $woocommerce;
-      
       ?>
       <div id="glance" class="metabox-holder">
 
