@@ -106,7 +106,18 @@ if (!class_exists("ralc_wpec_to_woo")) {
                       <td class="t"><a href="edit-tags.php?taxonomy=product_tag&post_type=product">Product Tags</a></td>
                     </tr>
                     <tr>
-                      <td class="b first"><a href="admin.php?page=woocommerce_attributes"><?php echo sizeof($woocommerce->get_attribute_taxonomies()); ?></a></td>
+                      <td class="b first">
+                        <a href="admin.php?page=woocommerce_attributes">
+                        <?php
+                          if (method_exists($woocommerce, 'get_attribute_taxonomies')) {
+                            $taxonomies = $woocommerce->get_attribute_taxonomies();
+                          } else {
+                            $taxonomies = wc_get_attribute_taxonomies();
+                          }
+                          echo sizeof($taxonomies);
+                        ?>
+                        </a>
+                      </td>
                       <td class="t"><a href="admin.php?page=woocommerce_attributes">Attribute taxonomies</a></td>
                     </tr>
                     <tr class="first">
