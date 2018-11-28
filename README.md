@@ -1,3 +1,5 @@
+** Note: A more recent fork that builds on this plugin was created by @jbeales and has lots of improvements on this plugin. It is recommened you use that one instead. https://github.com/jbeales/wp-e-commerce-to-woocommerce-converter **
+
 # WPEC to Woocommerce converter
 
 A Wordpress plugin to help migrating from WP E-Commerce to Woocommerce.
